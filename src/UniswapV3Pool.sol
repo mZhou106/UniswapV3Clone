@@ -34,7 +34,7 @@ contract UniswapV3Pool {
 
     constructor(
         address token0_,
-     address token1_,
+        address token1_,
         uint160 sqrtPriceX96,
         int24 tick
     ){
@@ -46,10 +46,10 @@ contract UniswapV3Pool {
     }
 
     function mint(
-        address owner; // token 所有者的地址，来识别是谁提供的流动性
-        int24 lowerTick;
-        int24 upperTick;
-        uint128 amount; // 用户希望提供的流动性的数量
+        address owner, // token 所有者的地址，来识别是谁提供的流动性
+        int24 lowerTick,
+        int24 upperTick,
+        uint128 amount // 用户希望提供的流动性的数量
     ) external returns(uint256 amount0, uint256 amount1) {
         /// 用户指定价格区间和流动性的数量
         /// 合约更新 ticks 和 positions 的mapping
@@ -63,15 +63,37 @@ contract UniswapV3Pool {
         ) revert InvalidTickRange();
 
         if(amount == 0) revert ZeroLiquidity();
-        ticks.update(lowerTick, amount); // todo
+        ticks.update(lowerTick, amount); 
         ticks.update(upperTick, amount);
 
-        Position.Info storage position = position.get( // todo
+        Position.Info storage position = positions.get( 
             owner,
             lowerTick,
             upperTick
         );
-        position.update(amount);// todo
+        position.update(amount);
+
+        
+        uint256 balance0Before;
+        uint256 balance1Before;
+        if (amount0 > 0) balance0Before = balance0(); // todo 这是一个什么函数？
+        if (amount1 > 0) balance1Before = balance1(); // todo 这是一个什么函数？
+        // 回调函数，用于从用户处获得token
+        // 调用者需要实现uniswapV3MintCallback来将token转给池子合约
+        IUniswapV3MintCallback(msg.sender).uniswapV3MintCallback(
+            amount0,
+            amount1
+        );
+        // 检查池子对应余额是否发生变化，增量是否大于amount0和amount1
+        if (amount0 > 0 && balance0Before + amount0 > balance0())
+            revert InsufficientInputAmount();
+        if (amount1 > 0 && balance1Before + amount1 > balance1())
+            revert InsufficientInputAmount();
+        emit Mint(msg.sender, owner, lowerTick, upperTick, amount, amount0, amount1);
+
+
+
+
     }
 
 }
